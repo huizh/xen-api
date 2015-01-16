@@ -484,6 +484,8 @@ module GuestMetrics : HandlerTools = struct
 			~memory:gm_record.API.vM_guest_metrics_memory
 			~disks:gm_record.API.vM_guest_metrics_disks
 			~networks:gm_record.API.vM_guest_metrics_networks
+			~networks_path_optimized:gm_record.API.vM_guest_metrics_networks_path_optimized
+			~storages_path_optimized:gm_record.API.vM_guest_metrics_storages_path_optimized
 			~other:gm_record.API.vM_guest_metrics_other
 			~last_updated:gm_record.API.vM_guest_metrics_last_updated
 			~other_config:gm_record.API.vM_guest_metrics_other_config

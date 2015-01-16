@@ -6929,9 +6929,21 @@ let vm_guest_metrics =
       field ~qualifier:DynamicRO ~ty:(Map(String, String)) "os_version" "version of the OS";
       field ~qualifier:DynamicRO ~ty:(Map(String, String)) "PV_drivers_version" 
 	"version of the PV drivers";
-      field ~qualifier:DynamicRO ~ty:Bool ~in_oss_since:None "PV_drivers_up_to_date"
-	"true if the PV drivers appear to be up to date";
-
+      field ~qualifier:DynamicRO ~ty:Bool ~in_oss_since:None
+        ~lifecycle:[
+          Removed, rel_creedence, "Disabled in favour of the PV drivers auto-update"
+        ]
+      "PV_drivers_up_to_date" "true if the PV drivers appear to be up to date";
+      field ~qualifier:DynamicRO ~ty:Bool ~in_oss_since:None ~default_value:(Some (VBool false))
+        ~lifecycle:[
+          Published, rel_creedence, "Network path are optimized with backend";
+        ]
+      "networks_path_optimized" "true if the network paths are optimized with PV driver";
+      field ~qualifier:DynamicRO ~ty:Bool ~in_oss_since:None ~default_value:(Some (VBool false))
+        ~lifecycle:[
+          Published, rel_creedence, "Storage paths are optimized with backend";
+        ]
+      "storages_path_optimized" "true if the storage paths are optimized with PV driver";
       field ~qualifier:DynamicRO ~ty:(Map(String, String)) "memory" "free/used/total memory";
       field ~qualifier:DynamicRO ~ty:(Map(String, String)) "disks" "disk configuration/free space";
       field ~qualifier:DynamicRO ~ty:(Map(String, String)) "networks" "network configuration";
