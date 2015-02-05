@@ -296,6 +296,15 @@ let all (lookup: string -> string option) (list: string -> string list) ~__conte
 	  		:: acc
 	  	) [] vbd_cdrom_id) in
 	  	let storages_path_optimized = List.for_all (fun (k, v) -> v = "4") vbd_state_except_cdrom in
+
+	  	let sl xs = String.concat "; " (List.map (fun (k, v) -> k ^ ": " ^ v) xs) in
+	  	info "HUIZH: vbd_cdrom = %s" (sl vbd_cdrom);
+	  	info "HUIZH: vbd_cdrom_key = %s " (String.concat ";" vbd_cdrom_key);
+	  	info "HUIZH: vbd_cdrom_id = %s " (String.concat ";" vbd_cdrom_id);
+	  	info "HUIZH: vbd_except_device_type = %s" (sl vbd_except_device_type);
+	  	info "HUIZH: vbd_state_except_cdrom = %s" (sl vbd_state_except_cdrom);
+	  	info "HUIZH: update disks_path_optimized to %B" storages_path_optimized;
+
 	  	Db.VM_guest_metrics.set_storages_path_optimized ~__context ~self:gm ~value:storages_path_optimized;
 	  end;
 (*	  if(memory_cached <> memory) then

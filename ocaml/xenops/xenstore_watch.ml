@@ -133,6 +133,7 @@ module WatchXenstore = functor(Actions: WATCH_ACTIONS) -> struct
 						if Xs.has_watchevents xs
 						then Xs.get_watchevent xs
 						else Xs.read_watchevent xs in
+					debug "HUIZH: path = %s" path;
 					if path = _introduceDomain || path = _releaseDomain
 					then look_for_different_domains ()
 					else Actions.watch_fired xc xs path !domains !watches

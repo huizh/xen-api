@@ -2285,8 +2285,10 @@ module Actions = struct
 				let update = match kind with
 					| "vbd" | "vbd3" ->
 						let devid' = devid |> int_of_string |> Device_number.of_xenstore_key |> Device_number.to_linux_device in
+						(*let devid' = devid in*)
+						debug "HUIZH fire_event_on_device VBD domid %s, kind %s, devid' %s " domid kind devid';
 						Some (Dynamic.Vbd (id, devid'))
-					| "vif" -> Some (Dynamic.Vif (id, devid))
+					| "vif" -> debug "HUIZH fire_event_on_device VIF domid %s, kind %s, devid %s " domid kind devid; Some (Dynamic.Vif (id, devid))
 					| x ->
 						debug "Unknown device kind: '%s'" x;
 						None in
@@ -2294,11 +2296,13 @@ module Actions = struct
 
 		match List.filter (fun x -> x <> "") (String.split '/' path) with
 			| "local" :: "domain" :: domid :: "backend" :: kind :: frontend :: devid :: _ ->
-				debug "Watch on backend domid: %s kind: %s -> frontend domid: %s devid: %s" domid kind frontend devid;
+				debug "HUIZH: Watch on backend domid: %s kind: %s -> frontend domid: %s devid: %s" domid kind frontend devid;
 				fire_event_on_device frontend kind devid
-			| "local" :: "domain" :: frontend :: "device" :: _ ->
+			| "local" :: "domain" :: frontend :: "device" :: device ->
+				debug "HUIZH: Watch on frontend domid: %s device %s" frontend (String.concat "/" device);
 				look_for_different_devices (int_of_string frontend)
 			| "local" :: "domain" :: domid :: _ ->
+				debug "HUIZH: Watch on domid: %s" domid;
 				fire_event_on_vm domid
 			| "vm" :: uuid :: "rtc" :: "timeoffset" :: [] ->
 				let timeoffset = try Some (xs.Xs.read path) with _ -> None in
