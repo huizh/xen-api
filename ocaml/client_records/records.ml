@@ -773,6 +773,11 @@ let vm_record rpc session_id vm =
 				~add_to_map:(fun k v -> Client.VM.add_to_platform rpc session_id vm k v)
 				~remove_from_map:(fun k -> Client.VM.remove_from_platform rpc session_id vm k) 
 				~get_map:(fun () -> (x ()).API.vM_platform) ();
+			make_field ~name:"physmap"
+				~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.vM_physmap)
+				~add_to_map:(fun k v -> Client.VM.add_to_physmap rpc session_id vm k v)
+				~remove_from_map:(fun k -> Client.VM.remove_from_physmap rpc session_id vm k) 
+				~get_map:(fun () -> (x ()).API.vM_physmap) ();
 			make_field ~name:"allowed-operations"
 				~get:(fun () -> String.concat "; " (List.map Record_util.vm_operation_to_string (x ()).API.vM_allowed_operations)) 
 				~get_set:(fun () -> List.map Record_util.vm_operation_to_string (x ()).API.vM_allowed_operations) ();

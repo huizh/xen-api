@@ -18,7 +18,7 @@ open Datamodel_types
 (* IMPORTANT: Please bump schema vsn if you change/add/remove a _field_.
               You do not have to bump vsn if you change/add/remove a message *)
 let schema_major_vsn = 5
-let schema_minor_vsn = 100
+let schema_minor_vsn = 101
 
 (* Historical schema versions just in case this is useful later *)
 let rio_schema_major_vsn = 5
@@ -7338,6 +7338,7 @@ let vm =
 	namespace ~name:"PV" ~contents:pv ();
 	namespace ~name:"HVM" ~contents:hvm ();
 	field ~ty:(Map(String, String)) "platform" "platform-specific configuration";
+	field ~ty:(Map(String, String)) "physmap" "VRAM paramters";
 
 	field ~lifecycle:[
 		Published, rel_rio, "PCI bus path for pass-through devices";
