@@ -20,6 +20,7 @@ open Forkhelpers
 open Xml
 open Helpers
 open Listext
+open Client
 
 module D = Debug.Make(struct let name="xapi" end)
 open D
@@ -42,6 +43,83 @@ type update_info = {
   vdi: API.ref_VDI;
   hosts: API.ref_host list
 }
+
+(** Mount a filesystem somewhere, with optional type *)
+let mount ?ty:(ty = None) ?lo:(lo = true) src dest =
+  let ty = match ty with None -> [] | Some ty -> [ "-t"; ty ] in
+  let lo = if lo then ["-o"; "loop"] else [] in
+  ignore(Forkhelpers.execute_command_get_output "/bin/mount" (ty @ lo @ [src; dest ]))
+
+let timeout = 300. (* 5 minutes: something is seriously wrong if we hit this timeout *)
+exception Umount_timeout
+
+(** Unmount a mountpoint. Retries every 5 secs for a total of 5mins before returning failure *)
+let umount ?(retry=true) dest =
+  let finished = ref false in
+  let start = Unix.gettimeofday () in
+
+  while not(!finished) && (Unix.gettimeofday () -. start < timeout) do
+    try
+      ignore(Forkhelpers.execute_command_get_output "/bin/umount" [dest] );
+      finished := true
+    with e ->
+      if not(retry) then raise e;
+      debug "Caught exception (%s) while unmounting %s: pausing before retrying"
+        (ExnHelper.string_of_exn e) dest;
+      Thread.delay 5.
+  done;
+  if not(!finished) then raise Umount_timeout
+
+let detach ~__context ~self ~host =
+  let vdi = Db.Pool_update.get_vdi ~__context ~self in
+  let mount_point_parent_dir = String.concat "/" [Xapi_globs.host_update_dir; (Db.VDI.get_uuid ~__context ~self:vdi)] in
+  let mount_point = String.concat "/" [mount_point_parent_dir; "vdi"] in
+  debug "pool_update.detach %s from %s" (Db.Pool_update.get_name_label ~__context ~self) mount_point;
+  umount mount_point;
+  let output, _ = Forkhelpers.execute_command_get_output "/bin/rm" ["-r"; mount_point_parent_dir] in
+  debug "pool_update.detach Mountpoint removed (output=%s)" output;
+
+  Helpers.call_api_functions ~__context
+    (fun rpc session_id -> 
+      let dom0 = Helpers.get_domain_zero ~__context in
+      let vbds = Client.VDI.get_VBDs ~rpc ~session_id ~self:vdi in
+      let vbd = List.find (fun self -> Client.VBD.get_VM ~rpc ~session_id ~self = dom0) vbds in
+      Client.VBD.unplug ~rpc ~session_id ~self:vbd;
+      Client.VBD.destroy ~rpc ~session_id ~self:vbd
+  )
+
+let with_api_errors f x =
+  try f x
+  with
+  | Smint.Command_failed(ret, status, stdout_log, stderr_log)
+  | Smint.Command_killed(ret, status, stdout_log, stderr_log) ->
+      let msg = Printf.sprintf "Smint.Command_{failed,killed} ret = %d; status = %s; stdout = %s; stderr = %s"
+        ret status stdout_log stderr_log in
+      raise (Api_errors.Server_error (Api_errors.internal_error, [msg]))
+
+let attach ~__context ~self ~host =
+  let vdi = Db.Pool_update.get_vdi ~__context ~self in
+  let mount_point = String.concat "/" [Xapi_globs.host_update_dir; Db.VDI.get_uuid ~__context ~self:vdi; "vdi"] in
+  debug "pool_update.attach %s to %s" (Db.Pool_update.get_name_label ~__context ~self) mount_point;
+  if (try Sys.is_directory mount_point with _ -> false) then detach ~__context ~self ~host;
+
+  let device = ref "" in
+  Helpers.call_api_functions ~__context
+    (fun rpc session_id ->
+      let dom0 = Helpers.get_domain_zero ~__context in 
+      let vbd = Client.VBD.create ~rpc ~session_id ~vM:dom0 ~empty:false ~vDI:vdi 
+              ~userdevice:"autodetect" ~bootable:false ~mode:`RO ~_type:`Disk ~unpluggable:true
+              ~qos_algorithm_type:"" ~qos_algorithm_params:[] 
+              ~other_config:[] in
+      Client.VBD.plug ~rpc ~session_id ~self:vbd;
+      device := ( "/dev/" ^ (Client.VBD.get_device ~rpc ~session_id ~self:vbd))
+  );
+
+  let output, _ = Forkhelpers.execute_command_get_output "/bin/mkdir" ["-p"; mount_point] in
+  debug "pool_update.attach Mountpoint created (output=%s)" output;
+  with_api_errors (mount !device) mount_point;
+  debug "pool_update.attach Mounted %s" mount_point;
+  mount_point
 
 exception Missing_update_key of string
 exception Bad_update_info
