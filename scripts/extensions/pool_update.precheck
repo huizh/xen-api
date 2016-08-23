@@ -30,13 +30,12 @@ def parse_control_package(yum_url):
             xmldoc = xml.dom.minidom.parse(update_xml)
             itemlist = xmldoc.getElementsByTagName('update')
             if itemlist[0].hasAttribute('control'):
-                control_package = itemlist[0].getAttribute['control']
+                control_package = itemlist[0].getAttribute('control')
             parse_done = True
         except Exception as e:
-            print (failure_message('PrecheckFailure', ['Exception: Parse Control Package from shared storage. ' + str(e) + '\n' + traceback.format_exc()]))
+            print (failure_message('PATCH_PRECHECK_FAILED_UNKNOWN_ERROR', ['Exception: Parse Control Package from shared storage. ' + str(e) + '\n' + traceback.format_exc()]))
             return control_package, parse_done
     elif yum_url.startswith(('http://', 'https://')):
-        # TODO: consider if it's https
         # If it's on local storage, the yum is exposed as HTTP URL.
         # Fetch update.xml to local and parse to fetch the control package name.
         try:
@@ -44,18 +43,19 @@ def parse_control_package(yum_url):
             xmldoc = urllib2.urlopen(update_xml).read()
             itemlist = xmldoc.getElementsByTagName('update')
             if itemlist[0].hasAttribute('control'):
-                control_package = itemlist[0].getAttribute['control']
+                control_package = itemlist[0].getAttribute('control')
             parse_done = True
         except Exception as e:
-            print (failure_message('PrecheckFailure', ['Exception: Parse Control Package from http server. ' + str(e) + '\n' + traceback.format_exc()]))
+            print (failure_message('PATCH_PRECHECK_FAILED_UNKNOWN_ERROR', ['Exception: Parse Control Package from http server. ' + str(e) + '\n' + traceback.format_exc()]))
             return control_package, parse_done
     else:
-        print (failure_message('PrecheckFailure', ['Incorrect yum repo.']))
+        print (failure_message('PATCH_PRECHECK_FAILED_UNKNOWN_ERROR', ['Incorrect yum repo.']))
     return control_package, parse_done
 
 #def execute_precheck(yum_url, control_package):
 def execute_precheck(control_package):
     # TODO: handle the error message, need structured message
+    fist_file = '/tmp/fist_allowed_unsigned_updates'
     precheck_pass = False
     precheck_message = ''
     try:
@@ -65,7 +65,12 @@ def execute_precheck(control_package):
         # yum.conf is located at /var/update/<uuid>/yum.conf
         update_uuid = session.xenapi.pool_update.get_uuid(update)
         yum_conf = '/var/update/' + update_uuid + '/yum.conf'
-        retcode = subprocess.call('yum -c ' + yum_conf + ' install -y ' + control_package, shell=True, stdout = FNULL, stderr = FNULL)
+        open('/tmp/precheck.log', 'ab').write('%s %s\n' % (time.ctime(), yum_conf))
+        allow_unsigned = False
+        if os.path.exists(fist_file):
+            allow_unsigned = update_uuid in open(fist_file, 'rb').read().split()
+        nogpgcheck = ' --nogpgcheck ' if allow_unsigned else ' '
+        retcode = subprocess.call('yum -c ' + yum_conf + ' install -y ' + nogpgcheck + control_package, shell=True, stdout = FNULL, stderr = FNULL)
         if retcode == 0:
             open('/tmp/precheck.log', 'ab').write('%s %d\n' % (time.ctime(), retcode))
             precheck_pass = True
@@ -106,9 +111,9 @@ if __name__ == '__main__':
                 if precheck_pass:
                     print (success_message(precheck_message))
                 else:
-                    print (failure_message('PrecheckFailure', precheck_message))
+                    print (failure_message('PATCH_PRECHECK_FAILED_UNKNOWN_ERROR', precheck_message))
     except Exception as e:
-        print (failure_message('PrecheckFailure', ['Exception: Precheck failed: ' + str(e) + '\n' + traceback.format_exc()]))
+        print (failure_message('PATCH_PRECHECK_FAILED_UNKNOWN_ERROR', ['Exception: Precheck failed: ' + str(e) + '\n' + traceback.format_exc()]))
     finally:
         if session is not None:
             session.xenapi.pool_update.detach(update, host)
