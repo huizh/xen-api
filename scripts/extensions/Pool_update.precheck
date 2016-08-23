@@ -19,7 +19,7 @@ def failure_message(code, params):
     return xmlrpclib.dumps((rpcparams, ), '', True)
 
 def parse_control_package(yum_url):
-    #open('/tmp/precheck.log', 'ab').write('%s %s\n' % (time.ctime(), yum_url))
+    open('/tmp/precheck.log', 'ab').write('%s %s\n' % (time.ctime(), yum_url))
     control_package = ''
     parse_done = False
     if yum_url.startswith(('file://', '/')):
@@ -53,21 +53,25 @@ def parse_control_package(yum_url):
         print (failure_message('PrecheckFailure', ['Incorrect yum repo.']))
     return control_package, parse_done
 
-def execute_precheck(yum_url, control_package):
+#def execute_precheck(yum_url, control_package):
+def execute_precheck(control_package):
     # TODO: handle the error message, need structured message
     precheck_pass = False
     precheck_message = ''
     try:
-        #open('/tmp/precheck.log', 'ab').write('%s %s\n' % (time.ctime(), control_package))
+        open('/tmp/precheck.log', 'ab').write('%s %s\n' % (time.ctime(), control_package))
         FNULL = open(os.devnull, 'w')
         #retcode = subprocess.call('yum install ' + control_package, shell=True, stdout = FNULL, stderr = FNULL)
-        retcode = subprocess.call('yum -c ' + yum_url + ' install -y ' + control_package, shell=True, stdout = FNULL, stderr = FNULL)
+        # yum.conf is located at /var/update/<uuid>/yum.conf
+        update_uuid = session.xenapi.pool_update.get_uuid(update)
+        yum_conf = '/var/update/' + update_uuid + '/yum.conf'
+        retcode = subprocess.call('yum -c ' + yum_conf + ' install -y ' + control_package, shell=True, stdout = FNULL, stderr = FNULL)
         if retcode == 0:
-            #open('/tmp/precheck.log', 'ab').write('%s %d\n' % (time.ctime(), retcode))
+            open('/tmp/precheck.log', 'ab').write('%s %d\n' % (time.ctime(), retcode))
             precheck_pass = True
             precheck_message = 'Precheck passed.'
         else:
-            #open('/tmp/precheck.log', 'ab').write('%s %d\n' % (time.ctime(), retcode))
+            open('/tmp/precheck.log', 'ab').write('%s %d\n' % (time.ctime(), retcode))
             precheck_message = ['Failure: Precheck execution failed.']
     except Exception as e:
         precheck_message = ['Exception: Precheck execution failed. ' + str(e) + '\n' + traceback.format_exc()]
@@ -83,22 +87,22 @@ if __name__ == '__main__':
         session = XenAPI.xapi_local()
         session.xenapi.login_with_password('root', '', '', 'Pool_update')
 
-        #open('/tmp/precheck.log', 'ab').write('%s %s\n' % (time.ctime(), params))
+        open('/tmp/precheck.log', 'ab').write('%s %s\n' % (time.ctime(), params))
         update = params[1]
         host = params[2]
         # attach and get the yum URL
         yum_url = session.xenapi.pool_update.attach(update, host)
-        #open('/tmp/precheck.log', 'ab').write('%s %s\n' % (time.ctime(), yum_url))
+        open('/tmp/precheck.log', 'ab').write('%s %s\n' % (time.ctime(), yum_url))
         control_package, parse_done = parse_control_package(yum_url)
 
         if parse_done:
-            if control_package != '':
+            if control_package == '':
                 print (success_message('Precheck is not required for this update.'))
             else:
-                execute_precheck (yum_url, control_package)
-                precheck_pass, precheck_message = execute_precheck (yum_url, control_package)
-                #open('/tmp/precheck.log', 'ab').write('%s %s\n' % (time.ctime(),precheck_pass))
-                #open('/tmp/precheck.log', 'ab').write('%s %s\n' % (time.ctime(),precheck_message))
+                #execute_precheck (control_package)
+                precheck_pass, precheck_message = execute_precheck (control_package)
+                open('/tmp/precheck.log', 'ab').write('%s %s\n' % (time.ctime(),precheck_pass))
+                open('/tmp/precheck.log', 'ab').write('%s %s\n' % (time.ctime(),precheck_message))
                 if precheck_pass:
                     print (success_message(precheck_message))
                 else:
