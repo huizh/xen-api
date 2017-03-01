@@ -315,10 +315,23 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
 
     match my_backend' with
     | Network_interface.Openvswitch ->
-      let my_controller = Db.Pool.get_vswitch_controller ~__context ~self:my_pool in
-      let controller = Client.Pool.get_vswitch_controller ~rpc ~session_id ~self:pool in
-      if my_controller <> controller && my_controller <> "" then
-        raise (Api_errors.Server_error(Api_errors.operation_not_allowed, ["vswitch controller address differs"]))
+      let my_legacy_controller = Db.Pool.get_vswitch_controller ~__context ~self:my_pool in
+      let remote_legacy_controller = Client.Pool.get_vswitch_controller ~rpc ~session_id ~self:pool in
+      if my_legacy_controller <> remote_legacy_controller && my_legacy_controller <> "" then
+        raise (Api_errors.Server_error(Api_errors.operation_not_allowed, ["vswitch controller address differs"]));
+
+      let my_sdn_controller = List.hd (Db.SDN_controller.get_all) in
+      let my_sdn_protocol = Db.SDN_controller.get_protocol ~self:my_sdn_protocol in
+      let my_sdn_address = Db.SDN_controller.get_address ~self:my_sdn_protocol in
+      let my_sdn_port = Db.SDN_controller.get_port ~self:my_sdn_protocol in
+      let remote_sdn_controller = List.hd (Client.SDN_controller.get_all ~rpc ~session_id) in
+      let remote_sdn_protocol = Client.SDN_controller.get_protocol ~rpc ~session_id ~self:remote_sdn_controller in
+      let remote_sdn_address = Client.SDN_controller.get_address ~rpc ~session_id ~self:remote_sdn_controller in
+      let remote_sdn_port = Client.SDN_controller.get_port ~rpc ~session_id ~self:remote_sdn_controller in
+      if (my_sdn_protocol <> remote_sdn_protocol && my_sdn_protocol <> "")
+        || (my_sdn_address <> remote_sdn_address && my_sdn_address <> "")
+        || (my_sdn_port <> remote_sdn_port && my_sdn_port <> "") then
+        raise (Api_errors.Server_error(Api_errors.operation_not_allowed, ["SDN controller differs"]));
     | _ -> ()
   in
 

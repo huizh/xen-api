@@ -4035,4 +4035,15 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       do_op_on ~__context ~local_fn ~host
         (fun session_id rpc -> Client.PVS_cache_storage.destroy rpc session_id self)
   end
+
+  module SDN_controller = struct
+    let introduce ~__context ~protocol ~address ~port =
+      info "SDN_controller.introduce";
+      Local.SDN_controller.introduce ~__context ~protocol ~address ~port
+
+    let forget ~__context ~self =
+      info "SDN_controller.forget";
+      Local.SDN_controller.introduce ~__context ~self
+  end
+
 end

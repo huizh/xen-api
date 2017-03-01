@@ -159,6 +159,7 @@ let _pvs_site = "PVS_site"
 let _pvs_server = "PVS_server"
 let _pvs_proxy = "PVS_proxy"
 let _pvs_cache_storage = "PVS_cache_storage"
+let _sdn_controller = "SDN_controller"
 
 
 (** All the various static role names *)
@@ -9471,6 +9472,72 @@ module PVS_cache_storage = struct
 end
 let pvs_cache_storage = PVS_cache_storage.obj
 
+module SDN_controller = struct
+  let lifecycle = [Published, rel_falcon, ""]
+
+  let protocol = Enum ("sdn_controller_protocol", [
+      "ssl", "Active ssl connection";
+      "pssl", "Passive ssl connection";
+    ])
+
+  let introduce = call
+      ~name:"introduce"
+      ~doc:"Introduce an SDN controller to the pool."
+      ~result:(Ref _sdn_controller, "the introduced SDN controller")
+      ~params:
+        [ protocol _protocol   , "protocol", "Protocol to connect with SDN controller."
+        ; String _address , "address", "IP address."
+        ; Int _port , "port", "TCP port."
+        ]
+      ~lifecycle
+      ~allowed_roles:_R_POOL_OP
+      ()
+
+  let forget = call
+      ~name:"forget"
+      ~doc:"Remove the OVS manager of the pool and destroy the db record."
+      ~params:
+        [ Ref _sdn_controller  , "self", "this SDN controller"
+        ]
+      ~lifecycle
+      ~allowed_roles:_R_POOL_OP
+      ()
+
+  let obj =
+    create_obj
+      ~name: _sdn_controller
+      ~descr:"Describes the SDN controller that is to connect with the pool"
+      ~doccomments:[]
+      ~gen_constructor_destructor:false
+      ~gen_events:true
+      ~in_db:true
+      ~lifecycle
+      ~persist:PersistEverything
+      ~in_oss_since:None
+      ~messages_default_allowed_roles:_R_POOL_OP
+      ~contents:
+        [ uid     _sdn_controller ~lifecycle
+
+        ; field   ~qualifier:StaticRO ~lifecycle
+            ~ty:protocol "protocol" ~default_value:(Some (VEnum "ssl"))
+            "PVS site this proxy is part of"
+
+        ; field   ~qualifier:StaticRO ~lifecycle
+            ~ty:String "address" ~default_value:(Some (VString ""))
+            "VIF of the VM using the proxy"
+
+        ; field   ~qualifier:StaticRO ~lifecycle
+            ~ty:status "status" ~default_value:(Some (VInt 6632L))
+            "The run-time status of the proxy"
+        ]
+      ~messages:
+        [ create
+        ; destroy
+        ]
+      ()
+end
+let sdn_controller = SDN_controller.obj
+
 (******************************************************************************************)
 
 (** All the objects in the system in order they will appear in documentation: *)
@@ -9535,6 +9602,7 @@ let all_system =
     pvs_server;
     pvs_proxy;
     pvs_cache_storage;
+    sdn_controller;
   ]
 
 (** These are the pairs of (object, field) which are bound together in the database schema *)
@@ -9708,6 +9776,7 @@ let expose_get_all_messages_for = [
   _pvs_server;
   _pvs_proxy;
   _pvs_cache_storage;
+  _sdn_controller;
 ]
 
 let no_task_id_for = [ _task; (* _alert; *) _event ]
